@@ -4,7 +4,9 @@
 import urllib2
 from xml.dom import minidom
 from decimal import Decimal
+from simpleeval import simple_eval
 from trytond.pool import Pool, PoolMeta
+from trytond.tools import decistmt
 
 __all__ = ['ProductAppRivals']
 
@@ -44,8 +46,8 @@ class ProductAppRivals:
                 rivals[rival_name] = rival_price
             values[code] = {
                 'rivals': rivals,
-                'min_price': min_price,
-                'max_price': max_price,
+                'min_price': Decimal(min_price),
+                'max_price': Decimal(max_price),
                 }
 
         codes = values.keys()
@@ -55,7 +57,7 @@ class ProductAppRivals:
 
         for p in products:
             if p.code in values:
-                rivals = values[p.name]['rivals']
+                rivals = values[p.code]['rivals']
                 product_rivals = {}
                 for n in p.rivals:
                     product_rivals[n.name] = n
@@ -72,14 +74,31 @@ class ProductAppRivals:
                             'price': Decimal(rivals[rival]),
                             })
 
-                # min and max rivals price
                 rival_prices = {}
-                min_price = values[p.name]['min_price']
+
+                # min rivals price
+                min_price = values[p.code]['min_price']
                 if min_price:
-                    rival_prices['list_price_min_rival'] = min_price
-                max_price = values[p.name]['max_price']
+                    if self.formula_min_price:
+                        context = self.get_context_formula(p)
+                        context['names']['min_price'] = min_price
+                        if not simple_eval(decistmt(self.formula_min_price), **context):
+                            min_price = None
+                    if min_price:
+                        rival_prices['list_price_min_rival'] = min_price
+
+                # max rivals price
+                max_price = values[p.code]['max_price']
                 if max_price:
-                    rival_prices['list_price_max_rival'] = max_price
+                    if self.formula_max_price:
+                        context = self.get_context_formula(p)
+                        context['names']['max_price'] = max_price
+                        if not simple_eval(decistmt(self.formula_max_price), **context):
+                            max_price = None
+                    if max_price:
+                        rival_prices['list_price_max_rival'] = max_price
+
+                # min / max prices (rival prices)
                 if rival_prices:
                     template_write.extend(([p.template], rival_prices))
 
