@@ -4,9 +4,7 @@
 import urllib2
 from xml.dom import minidom
 from decimal import Decimal
-from trytond.model import ModelSQL, ModelView, fields
 from trytond.pool import Pool, PoolMeta
-from trytond.pyson import Eval, Bool
 
 __all__ = ['ProductAppRivals']
 
@@ -23,36 +21,41 @@ class ProductAppRivals:
 
     def update_prices_netrivals(self):
         pool = Pool()
+        Template = pool.get('product.template')
         Product = pool.get('product.product')
         Rivals = pool.get('product.rivals')
 
-        #~ TODO el precio que quiero saber es el precio mas bajo "RivalMinPrice"
-        
         values = {}
         to_create = []
         to_write = []
+        template_write = []
 
         usock = urllib2.urlopen(self.app_uri) 
         xmldoc = minidom.parse(usock)
 
         for e in xmldoc.getElementsByTagName('Product'):
-            name = e.getElementsByTagName('Title')[0].firstChild.data
+            code = e.getElementsByTagName('MPN')[0].firstChild.data # code
             min_price = e.getElementsByTagName('RivalMinPrice')[0].firstChild.data
+            max_price = e.getElementsByTagName('RivalMaxPrice')[0].firstChild.data
             rivals = {}
             for r in e.getElementsByTagName('Rivals')[0].getElementsByTagName('Rival'):
                 rival_name = r.getElementsByTagName('Name')[0].firstChild.data
                 rival_price = r.getElementsByTagName('Price')[0].firstChild.data
                 rivals[rival_name] = rival_price
-            values[name] = rivals
+            values[code] = {
+                'rivals': rivals,
+                'min_price': min_price,
+                'max_price': max_price,
+                }
 
-        names = values.keys()
+        codes = values.keys()
         products = Product.search([
-            ('name', 'in', names),
+            ('code', 'in', codes),
             ])
-    
+
         for p in products:
-            if p.name in values:
-                rivals = values[p.name]
+            if p.code in values:
+                rivals = values[p.name]['rivals']
                 product_rivals = {}
                 for n in p.rivals:
                     product_rivals[n.name] = n
@@ -69,9 +72,20 @@ class ProductAppRivals:
                             'price': Decimal(rivals[rival]),
                             })
 
-        # TODO min_price
+                # min and max rivals price
+                rival_prices = {}
+                min_price = values[p.name]['min_price']
+                if min_price:
+                    rival_prices['list_price_min_rival'] = min_price
+                max_price = values[p.name]['max_price']
+                if max_price:
+                    rival_prices['list_price_max_rival'] = max_price
+                if rival_prices:
+                    template_write.extend(([p.template], rival_prices))
 
         if to_create:
             Rivals.create(to_create)
         if to_write:
             Rivals.write(*to_write)
+        if template_write:
+            Template.write(*template_write)
