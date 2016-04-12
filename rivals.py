@@ -5,10 +5,12 @@ import urllib2
 from xml.dom import minidom
 from decimal import Decimal
 from simpleeval import simple_eval
+from trytond.config import config
 from trytond.pool import Pool, PoolMeta
 from trytond.tools import decistmt
 
 __all__ = ['ProductAppRivals']
+DIGITS = config.getint('product', 'price_decimal', default=4)
 
 
 class ProductAppRivals:
@@ -63,15 +65,23 @@ class ProductAppRivals:
                     product_rivals[n.name] = n
 
                 for rival in rivals:
+                    if self.tax_included:
+                        price_w_tax = Decimal(rivals[rival])
+                        price = self.get_price_without_tax(p, price_w_tax)
+                    else:
+                        price = Decimal(rivals[rival])
+                        price_w_tax = self.get_price_with_tax(p, price)
                     if rival in product_rivals: # write
                         to_write.extend(([product_rivals[rival]], {
-                            'price': Decimal(rivals[rival]),
+                            'price': price,
+                            'price_w_tax': price_w_tax,
                             }))
                     else: # create
                         to_create.append({
                             'product': p,
                             'name': rival,
-                            'price': Decimal(rivals[rival]),
+                            'price': price,
+                            'price_w_tax': price_w_tax,
                             })
 
                 rival_prices = {}
@@ -85,6 +95,9 @@ class ProductAppRivals:
                         if not simple_eval(decistmt(self.formula_min_price), **context):
                             min_price = None
                     if min_price:
+                        if self.tax_included:
+                            min_price = self.get_price_without_tax(p,
+                                min_price)
                         rival_prices['list_price_min_rival'] = min_price
 
                 # max rivals price
@@ -96,6 +109,9 @@ class ProductAppRivals:
                         if not simple_eval(decistmt(self.formula_max_price), **context):
                             max_price = None
                     if max_price:
+                        if self.tax_included:
+                            max_price = self.get_price_without_tax(p,
+                                max_price)
                         rival_prices['list_price_max_rival'] = max_price
 
                 # min / max prices (rival prices)
