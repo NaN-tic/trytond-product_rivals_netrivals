@@ -88,6 +88,8 @@ class ProductAppRivals:
 
                 # min rivals price
                 min_price = values[p.code]['min_price']
+                if self.tax_included:
+                    min_price = self.get_price_without_tax(p, min_price)
                 if min_price:
                     if self.formula_min_price:
                         context = self.get_context_formula(p)
@@ -102,6 +104,8 @@ class ProductAppRivals:
 
                 # max rivals price
                 max_price = values[p.code]['max_price']
+                if self.tax_included:
+                    max_price = self.get_price_without_tax(p, max_price)
                 if max_price:
                     if self.formula_max_price:
                         context = self.get_context_formula(p)
@@ -115,7 +119,7 @@ class ProductAppRivals:
                         rival_prices['list_price_max_rival'] = max_price
 
                 # min / max prices (rival prices)
-                if rival_prices:
+                if rival_prices and p.validate_min_max_price(rival_prices):
                     template_write.extend(([p.template], rival_prices))
 
         if to_create:
