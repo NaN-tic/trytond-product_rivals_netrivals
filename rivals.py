@@ -90,33 +90,25 @@ class ProductAppRivals:
                 min_price = values[p.code]['min_price']
                 if self.tax_included:
                     min_price = self.get_price_without_tax(p, min_price)
-                if min_price:
-                    if self.formula_min_price:
+                if min_price and self.formula_min_price:
                         context = self.get_context_formula(p)
                         context['names']['min_price'] = min_price
                         if not simple_eval(decistmt(self.formula_min_price), **context):
                             min_price = None
-                    if min_price:
-                        if self.tax_included:
-                            min_price = self.get_price_without_tax(p,
-                                min_price)
-                        rival_prices['list_price_min_rival'] = min_price
+                if min_price:
+                    rival_prices['list_price_min_rival'] = min_price
 
                 # max rivals price
                 max_price = values[p.code]['max_price']
                 if self.tax_included:
                     max_price = self.get_price_without_tax(p, max_price)
-                if max_price:
-                    if self.formula_max_price:
+                if max_price and self.formula_max_price:
                         context = self.get_context_formula(p)
                         context['names']['max_price'] = max_price
                         if not simple_eval(decistmt(self.formula_max_price), **context):
                             max_price = None
-                    if max_price:
-                        if self.tax_included:
-                            max_price = self.get_price_without_tax(p,
-                                max_price)
-                        rival_prices['list_price_max_rival'] = max_price
+                if max_price:
+                    rival_prices['list_price_max_rival'] = max_price
 
                 # min / max prices (rival prices)
                 if rival_prices and p.validate_min_max_price(rival_prices):
